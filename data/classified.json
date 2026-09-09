@@ -2574,9 +2574,9 @@
   "tickers": [
    {
     "t": "SIVE",
-    "stance": "bearish",
-    "reason": "Hopes crash forces accountability for Sweden focus and wireless missteps",
-    "reason_zh": "希望崩跌能讓公司為瑞典和無線的失誤負責"
+    "stance": "neutral",
+    "reason": "criticizes management communication, not the stock",
+    "reason_zh": "批評管理層溝通，不是看空"
    }
   ],
   "theme": "governance",
@@ -4122,9 +4122,9 @@
   "tickers": [
    {
     "t": "NBIS",
-    "stance": "bearish",
-    "reason": "writing DD guide on shorting it",
-    "reason_zh": "寫放空NBIS研究指南"
+    "stance": "bullish",
+    "reason": "sarcastic short guide; every data point is bullish",
+    "reason_zh": "反諷放空者，數據全是利多"
    },
    {
     "t": "GOOGL",
