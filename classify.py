@@ -23,6 +23,7 @@ B = 20
 from concurrent.futures import ThreadPoolExecutor
 import threading
 lock = threading.Lock()
+failed = []
 def work(i):
     batch = todo[i:i+B]
     payload = [{'id': t['id'], 'text': t['text'], 'quoted': t['quoted']} for t in batch]
@@ -31,11 +32,15 @@ def work(i):
                            capture_output=True, text=True, stdin=subprocess.DEVNULL, timeout=600)
         m = re.search(r'\[.*\]', r.stdout, re.S)
         try:
-            res = json.loads(m.group(0)); assert len(res) == len(batch); break
+            res = json.loads(m.group(0)); assert len(res) == len(batch)
+            # match by id, not position, so a reordered answer can't put labels on the wrong post
+            byid = {str(x.get('id')): x for x in res}
+            assert set(byid) == {str(t['id']) for t in batch}, 'ids do not match batch'
+            res = [byid[str(t['id'])] for t in batch]; break
         except Exception as e:
             print('retry', i, e, r.stdout[:200], r.stderr[:200], file=sys.stderr); time.sleep(3)
     else:
-        print('failed batch %d' % i, flush=True); return 0
+        print('failed batch %d' % i, flush=True); failed.append(i); return 0
     with lock:
         for t, lab in zip(batch, res):
             done[t['id']] = {**t, 'tickers': lab.get('tickers', []), 'theme': lab.get('theme', ''), 'paywalled': t['text'].endswith('…')}
@@ -44,3 +49,5 @@ def work(i):
     return len(batch)
 with ThreadPoolExecutor(4) as ex: list(ex.map(work, range(0, len(todo), B)))
 print('done', len(done), 'of', len(tweets))
+if failed:
+    sys.exit(f'classify: {len(failed)} batch(es) failed, {len(tweets) - len(done)} posts unlabeled')

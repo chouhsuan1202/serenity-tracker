@@ -27,7 +27,7 @@ def window(days):
 def ask(days):
     payload = window(days)
     if not payload:
-        return []
+        return []  # no posts in window: an empty summary is correct
     for attempt in range(3):
         r = subprocess.run(['claude', '-p', '--model', MODEL, PROMPT % days + json.dumps(payload, ensure_ascii=False)],
                            capture_output=True, text=True, stdin=subprocess.DEVNULL, timeout=300)
@@ -41,8 +41,16 @@ def ask(days):
             print('retry', days, e, r.stdout[:200], r.stderr[:200], file=sys.stderr, flush=True)
             time.sleep(3)
     print('failed', days, flush=True)
-    return []
+    return None
 
-brief = {'7': ask(7), '28': ask(28)}
+old = json.load(open(OUT)) if OUT.exists() else {}
+brief, failed = {}, []
+for d in ('7', '28'):
+    pts = ask(int(d))
+    if pts is None:  # keep the previous summary instead of silently blanking it
+        failed.append(d); pts = old.get(d, [])
+    brief[d] = pts
 json.dump(brief, open(OUT, 'w'), ensure_ascii=False, indent=1)
 print('brief.json', brief)
+if failed:
+    sys.exit(f'brief: {",".join(failed)}-day summary failed, kept previous version')

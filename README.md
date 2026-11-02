@@ -6,14 +6,17 @@
 - data/tweets_raw.json：抓下來的原始貼文
 - data/classified.json：加上 AI 標籤（增量，已標過的不重跑）
 - classify.py：用 claude CLI 標籤，不用 API key。`python3 classify.py sonnet`
+- translate.py：補繁中翻譯（zh、reason_zh）
+- brief.py：產 data/brief.json（7 天、28 天重點）
 - build.py：產 index.html
+- 測試：`python3 -m unittest discover tests` 與 `node tests/page.test.js`
 - fetch_x.js：在已登入 X 的 Chrome，開 x.com/aleabitoreddit，貼到 console 執行，再送回 receiver.py
 - receiver.py：本機收資料。`python3 receiver.py data/incoming.json`，收到後把 incoming 合併進 tweets_raw
 
 ## 更新流程（目前半自動）
 1. 開 Chrome 到 x.com/aleabitoreddit（要登入）
 2. 跑 fetch_x.js，再導到 http://127.0.0.1:8765/receive#... 送回
-3. python3 merge.py && python3 classify.py && python3 build.py
+3. ./update.sh（依序跑 merge、classify、translate、brief、build；任一步失敗會非 0 結束並印出原因）
 
 ## 已知限制
 - 「Subscribe to unlock」的付費貼文只看得到開頭，標記 paywalled
