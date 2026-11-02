@@ -1,10 +1,12 @@
-"""Generate data/brief.json: short summary of Serenity's posts for last 7 and 28 days. Uses claude CLI (subscription), no API key."""
-import json, subprocess, sys, re, time, datetime, pathlib
+"""Generate data/brief.json: short summary of Serenity's posts for last 7 and 28 days.
+Uses claude CLI (subscription), no API key. If a summary fails, the previous one is kept. Usage: python3 brief.py [model]"""
+import datetime
+import json
+import sys
 
-MODEL = sys.argv[1] if len(sys.argv) > 1 else 'sonnet'
-IN = pathlib.Path('data/classified.json')
-OUT = pathlib.Path('data/brief.json')
-data = json.load(open(IN))
+from serenity.claude_cli import OBJECT, ask_json, model_from_argv
+from serenity.config import BRIEF, CLASSIFIED
+from serenity.text import parse_time
 
 PROMPT = """下面是 X 帳號 Serenity（半導體供應鏈分析師）最近 %d 天的貼文摘要。
 幫我整理成 3 到 5 條重點，給一個閱讀吃力的人快速掃過。
@@ -15,42 +17,49 @@ PROMPT = """下面是 X 帳號 Serenity（半導體供應鏈分析師）最近 %
 - 只回傳 JSON 物件：{"points":["...", "..."]}
 貼文：
 """
+WINDOWS = ('7', '28')
 
-def window(days):
-    cut = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=days)
-    posts = [x for x in data if datetime.datetime.fromisoformat(x['time'].replace('Z', '+00:00')) >= cut]
-    payload = [{'time': x['time'], 'zh': x.get('zh', ''),
-                'tickers': [{'t': k['t'], 'stance': k['stance'], 'reason_zh': k.get('reason_zh', '')} for k in x['tickers']]}
-               for x in posts]
-    return payload
 
-def ask(days):
-    payload = window(days)
+def window(data, days, now=None):
+    """Posts from the last `days` days, reduced to what the summary needs."""
+    now = now or datetime.datetime.now(datetime.timezone.utc)
+    cut = now - datetime.timedelta(days=days)
+    return [{'time': x['time'], 'zh': x.get('zh', ''),
+             'tickers': [{'t': k['t'], 'stance': k['stance'], 'reason_zh': k.get('reason_zh', '')} for k in x['tickers']]}
+            for x in data if parse_time(x['time']) >= cut]
+
+
+def check_points(res):
+    pts = res.get('points', [])
+    assert isinstance(pts, list) and len(pts) >= 1
+    return pts
+
+
+def ask(data, days, model):
+    payload = window(data, days)
     if not payload:
         return []  # no posts in window: an empty summary is correct
-    for attempt in range(3):
-        r = subprocess.run(['claude', '-p', '--model', MODEL, PROMPT % days + json.dumps(payload, ensure_ascii=False)],
-                           capture_output=True, text=True, stdin=subprocess.DEVNULL, timeout=300)
-        m = re.search(r'\{.*\}', r.stdout, re.S)
-        try:
-            res = json.loads(m.group(0))
-            pts = res.get('points', [])
-            assert isinstance(pts, list) and len(pts) >= 1
-            return pts
-        except Exception as e:
-            print('retry', days, e, r.stdout[:200], r.stderr[:200], file=sys.stderr, flush=True)
-            time.sleep(3)
-    print('failed', days, flush=True)
-    return None
+    pts = ask_json(PROMPT % days + json.dumps(payload, ensure_ascii=False), model, OBJECT, check_points, 300, days)
+    if pts is None:
+        print('failed', days, flush=True)
+    return pts
 
-old = json.load(open(OUT)) if OUT.exists() else {}
-brief, failed = {}, []
-for d in ('7', '28'):
-    pts = ask(int(d))
-    if pts is None:  # keep the previous summary instead of silently blanking it
-        failed.append(d); pts = old.get(d, [])
-    brief[d] = pts
-json.dump(brief, open(OUT, 'w'), ensure_ascii=False, indent=1)
-print('brief.json', brief)
-if failed:
-    sys.exit(f'brief: {",".join(failed)}-day summary failed, kept previous version')
+
+def main():
+    model = model_from_argv()
+    data = json.load(open(CLASSIFIED))
+    old = json.load(open(BRIEF)) if BRIEF.exists() else {}
+    brief, failed = {}, []
+    for d in WINDOWS:
+        pts = ask(data, int(d), model)
+        if pts is None:  # keep the previous summary instead of silently blanking it
+            failed.append(d); pts = old.get(d, [])
+        brief[d] = pts
+    json.dump(brief, open(BRIEF, 'w'), ensure_ascii=False, indent=1)
+    print('brief.json', brief)
+    if failed:
+        sys.exit(f'brief: {",".join(failed)}-day summary failed, kept previous version')
+
+
+if __name__ == '__main__':
+    main()

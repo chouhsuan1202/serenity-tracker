@@ -1,10 +1,11 @@
-"""Classify Serenity tweets: tickers + stance. Uses claude CLI (subscription), no API key."""
-import json, subprocess, sys, re, pathlib, time
-RAW = pathlib.Path('data/tweets_raw.json'); OUT = pathlib.Path('data/classified.json')
-MODEL = sys.argv[1] if len(sys.argv) > 1 else 'sonnet'
-tweets = json.load(open(RAW))
-done = {x['id']: x for x in json.load(open(OUT))} if OUT.exists() else {}
-todo = [t for t in tweets if t['id'] not in done]
+"""Classify Serenity tweets: tickers + stance. Uses claude CLI (subscription), no API key.
+Incremental: posts already in data/classified.json are not sent again. Usage: python3 classify.py [model]"""
+import json
+import sys
+
+from serenity.claude_cli import ARRAY, ask_json, matched_by_id, model_from_argv, run_batches
+from serenity.config import CLASSIFIED, RAW
+
 PROMPT = """You label stock opinions in posts by Serenity (@aleabitoreddit), an AI/semiconductor supply-chain analyst on X.
 For EACH post return the tickers/companies explicitly discussed and the author's stance on each.
 Rules:
@@ -19,35 +20,33 @@ Rules:
 Return ONLY a JSON array, one object per post, same order: {"id":..., "tickers":[{"t":"NVDA","stance":"bullish","reason":"..."}], "theme":"..."}
 Posts:
 """
-B = 20
-from concurrent.futures import ThreadPoolExecutor
-import threading
-lock = threading.Lock()
-failed = []
-def work(i):
-    batch = todo[i:i+B]
-    payload = [{'id': t['id'], 'text': t['text'], 'quoted': t['quoted']} for t in batch]
-    for attempt in range(3):
-        r = subprocess.run(['claude', '-p', '--model', MODEL, PROMPT + json.dumps(payload, ensure_ascii=False)],
-                           capture_output=True, text=True, stdin=subprocess.DEVNULL, timeout=600)
-        m = re.search(r'\[.*\]', r.stdout, re.S)
-        try:
-            res = json.loads(m.group(0)); assert len(res) == len(batch)
-            # match by id, not position, so a reordered answer can't put labels on the wrong post
-            byid = {str(x.get('id')): x for x in res}
-            assert set(byid) == {str(t['id']) for t in batch}, 'ids do not match batch'
-            res = [byid[str(t['id'])] for t in batch]; break
-        except Exception as e:
-            print('retry', i, e, r.stdout[:200], r.stderr[:200], file=sys.stderr); time.sleep(3)
-    else:
-        print('failed batch %d' % i, flush=True); failed.append(i); return 0
-    with lock:
-        for t, lab in zip(batch, res):
-            done[t['id']] = {**t, 'tickers': lab.get('tickers', []), 'theme': lab.get('theme', ''), 'paywalled': t['text'].endswith('…')}
-        json.dump(list(done.values()), open(OUT, 'w'), ensure_ascii=False, indent=1)
-        print(f'{len(done)}/{len(tweets)}', flush=True)
-    return len(batch)
-with ThreadPoolExecutor(4) as ex: list(ex.map(work, range(0, len(todo), B)))
-print('done', len(done), 'of', len(tweets))
-if failed:
-    sys.exit(f'classify: {len(failed)} batch(es) failed, {len(tweets) - len(done)} posts unlabeled')
+BATCH = 20
+
+
+def main():
+    model = model_from_argv()
+    tweets = json.load(open(RAW))
+    done = {x['id']: x for x in json.load(open(CLASSIFIED))} if CLASSIFIED.exists() else {}
+    todo = [t for t in tweets if t['id'] not in done]
+
+    def work(start, batch, lock):
+        payload = [{'id': t['id'], 'text': t['text'], 'quoted': t['quoted']} for t in batch]
+        res = ask_json(PROMPT + json.dumps(payload, ensure_ascii=False), model, ARRAY, matched_by_id(batch), 600, start)
+        if res is None:
+            print('failed batch %d' % start, flush=True)
+            return False
+        with lock:
+            for t, lab in zip(batch, res):
+                done[t['id']] = {**t, 'tickers': lab.get('tickers', []), 'theme': lab.get('theme', ''), 'paywalled': t['text'].endswith('…')}
+            json.dump(list(done.values()), open(CLASSIFIED, 'w'), ensure_ascii=False, indent=1)
+            print(f'{len(done)}/{len(tweets)}', flush=True)
+        return True
+
+    failed = run_batches(todo, BATCH, work)
+    print('done', len(done), 'of', len(tweets))
+    if failed:
+        sys.exit(f'classify: {len(failed)} batch(es) failed, {len(tweets) - len(done)} posts unlabeled')
+
+
+if __name__ == '__main__':
+    main()
