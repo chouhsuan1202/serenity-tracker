@@ -1,9 +1,10 @@
 """Build index.html from data/classified.json (single file, data embedded)."""
-import json, pathlib, datetime, sys
+import json, pathlib, datetime, re, sys
 
 ALIAS = {'SK Hynix': 'SKHY', 'Mediatek': 'MediaTek', 'ESMT': 'ESMT (3006)', 'Sandisk': 'SNDK', 'SanDisk': 'SNDK', 'Micron': 'MU', 'Nvidia': 'NVDA'}
 STANCES = ('bullish', 'bearish', 'neutral')
-DASHES = ('\u2014', '\u2013')  # em dash, en dash
+# every dash-like character the page must not show: figure, en, em, horizontal bar, two/three-em, small em, presentation forms
+DASHES = ('\u2012', '\u2013', '\u2014', '\u2015', '\u2e3a', '\u2e3b', '\ufe58', '\ufe31', '\ufe32')
 
 
 def warn(msg):
@@ -203,7 +204,7 @@ function render(){
   const posts=DATA.filter(p=>inWin(p,days));
   const bkey=(days===7||days===28)?String(days):'7';
   const pts=BRIEF[bkey]||[];
-  document.getElementById('brief').innerHTML=pts.length?('<ol>'+pts.map(t=>`<li>${esc(t)}</li>`).join('')+'</ol>'):'';
+  document.getElementById('brief').innerHTML=(pts.length&&posts.length)?('<ol>'+pts.map(t=>`<li>${esc(t)}</li>`).join('')+'</ol>'):'';
 
   const agg={};
   for(const p of posts) for(const k of p.tickers){
@@ -271,8 +272,9 @@ render();
 def render(data, brief, built):
     latest = parse_time(data[0]['time']).astimezone(datetime.timezone.utc).strftime('%Y-%m-%d %H:%M') if data else '-'
     brief = {k: [nodash(s) for s in v if isinstance(s, str)] for k, v in brief.items() if isinstance(v, list)}
-    return (HTML.replace('__DATA__', js_json(data)).replace('__BRIEF__', js_json(brief))
-            .replace('__LATEST__', latest).replace('__BUILT__', built))
+    # one pass, so a post that happens to contain "__BRIEF__" etc. is never rewritten
+    values = {'__DATA__': js_json(data), '__BRIEF__': js_json(brief), '__LATEST__': latest, '__BUILT__': built}
+    return re.sub('|'.join(values), lambda m: values[m.group(0)], HTML)
 
 
 def main(src='data/classified.json', brief_src='data/brief.json', dst='index.html'):
