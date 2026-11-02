@@ -16,11 +16,11 @@ function postHtml(p, focus) {
   const txt = Calc.cleanText(p.text);
   const zhText = p.zh ? p.zh : txt;
   const pay = p.paywalled ? ' <span class="mute">付費貼文，只有開頭</span>' : '';
-  const link = Calc.isXLink(p.link) ? `<a href="${esc(p.link)}" target="_blank" rel="noopener noreferrer">在 X 開啟</a>` : '';
-  const meta = `<span><span class="mute">${Calc.timeLabel(p.time)}</span>${pay}</span>${link}`;
+  const link = Calc.isXLink(p.link) ? `<a href="${esc(p.link)}" target="_blank" rel="noopener noreferrer" aria-label="在 X 開啟原貼文（另開新分頁）">在 X 開啟</a>` : '';
+  const meta = `<span><time class="mute" datetime="${esc(p.time)}">${Calc.timeLabel(p.time)}</time>${pay}</span>${link}`;
   const en = p.zh ? `<details><summary>英文原文</summary><div class="quoted">${esc(txt)}</div></details>` : '';
   const q = p.quoted ? `<details><summary>她回應的內容</summary><div class="quoted">${esc(p.quoted_zh || p.quoted)}${p.quoted_zh ? '\n\n原文：' + esc(p.quoted) : ''}</div></details>` : '';
-  return `<div class="post"><div class="meta">${meta}</div><div class="lab">${labs}</div><div class="txt clamp">${esc(zhText)}</div><button class="expand">展開</button>${en}${q}</div>`;
+  return `<article class="post"><div class="meta">${meta}</div><div class="lab">${labs}</div><div class="txt clamp">${esc(zhText)}</div><button type="button" class="expand">展開</button>${en}${q}</article>`;
 }
 
 // Posts with a date heading whenever the local day changes.
@@ -28,7 +28,7 @@ function postsHtml(list, focus) {
   let out = '', lastKey = null;
   for (const p of list) {
     const k = Calc.dateKey(p.time);
-    if (k !== lastKey) { out += `<div class="dhead">${Calc.dateLabel(p.time)}</div>`; lastKey = k; }
+    if (k !== lastKey) { out += `<h3 class="dhead">${Calc.dateLabel(p.time)}</h3>`; lastKey = k; }
     out += postHtml(p, focus);
   }
   return out;
@@ -53,8 +53,8 @@ function showSections(stockPage) {
 
 function tickerRowHtml(r) {
   const mix = (r.bullish > 0 && r.bearish > 0) ? `<span class="mute">多 ${r.bullish}・空 ${r.bearish}</span>` : '';
-  return `<div class="tkrow" data-t="${esc(r.t)}"><div class="l1"><span class="sym">${esc(r.t)}</span><span class="mute">提到 ${r.n} 次</span></div>`
-    + `<div class="l2">${stanceTag(r.lastStance, STANCE_ZH[r.lastStance])} <span class="reason">${esc(r.lastReason)}</span> ${mix}</div></div>`;
+  return `<button type="button" class="tkrow" data-t="${esc(r.t)}"><span class="l1"><span class="sym">${esc(r.t)}</span><span class="mute">提到 ${r.n} 次</span></span>`
+    + `<span class="l2">${stanceTag(r.lastStance, STANCE_ZH[r.lastStance])} <span class="reason">${esc(r.lastReason)}</span> ${mix}</span></button>`;
 }
 
 function renderList() {
@@ -68,7 +68,7 @@ function renderList() {
   const rows = Calc.tickerRows(posts);
   const shown = state.showAllTickers ? rows : rows.slice(0, Calc.TOP_N);
   $('tk').innerHTML = shown.map(tickerRowHtml).join('') || '<div class="mute">這段時間沒有貼文</div>';
-  document.querySelectorAll('.tkrow').forEach(el => el.onclick = () => { state.sel = el.dataset.t; render(); window.scrollTo(0, 0); });
+  document.querySelectorAll('.tkrow').forEach(el => el.onclick = () => { state.sel = el.dataset.t; render(); window.scrollTo(0, 0); $('stitle').focus({ preventScroll: true }); });
   const moreBtn = $('moreBtn');
   if (!state.showAllTickers && rows.length > Calc.TOP_N) { moreBtn.style.display = ''; moreBtn.textContent = `顯示全部 ${rows.length} 檔`; }
   else moreBtn.style.display = 'none';
@@ -100,10 +100,16 @@ document.querySelectorAll('#tabs button').forEach(b => {
   b.textContent = b.textContent + ' · ' + n;
   b.onclick = () => {
     state.days = d; state.showAllTickers = false;
-    document.querySelectorAll('#tabs button').forEach(x => x.classList.toggle('on', x === b));
+    document.querySelectorAll('#tabs button').forEach(x => { x.classList.toggle('on', x === b); x.setAttribute('aria-pressed', String(x === b)); });
     render();
   };
 });
 $('moreBtn').onclick = () => { state.showAllTickers = true; render(); };
-$('backBtn').onclick = () => { state.sel = null; render(); window.scrollTo(0, 0); };
+$('backBtn').onclick = () => {
+  const was = state.sel;
+  state.sel = null; render(); window.scrollTo(0, 0);
+  // keyboard users land back on the stock they opened (if it is still in the list)
+  const row = [...document.querySelectorAll('.tkrow')].find(el => el.dataset.t === was);
+  if (row) row.focus({ preventScroll: true });
+};
 render();

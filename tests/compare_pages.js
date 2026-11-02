@@ -18,7 +18,8 @@ async function views(browser, file, now, width) {
   const out = [];
   const snap = async name => out.push({
     name,
-    text: await page.evaluate(() => document.body.innerText),
+    // words and numbers only: line breaks depend on which tags are used, not on what the reader sees
+    text: (await page.evaluate(() => document.body.innerText)).replace(/\s+/g, ' ').trim(),
     png: textOnly ? null : await page.screenshot({ fullPage: true }),
   });
   for (const d of ['1', '7', '28', '0']) {

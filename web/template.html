@@ -3,27 +3,29 @@
 <title>Serenity 觀點追蹤</title>
 <style>
 __CSS__</style></head><body><main>
+<header>
 <h1>Serenity 觀點追蹤</h1>
-<div class="sub">@aleabitoreddit 的公開貼文，AI 判讀，可能有錯，不是投資建議</div>
-<div class="tabs" id="tabs"><button data-d="1">今天</button><button data-d="7" class="on">7 天</button><button data-d="28">28 天</button><button data-d="0">全部</button></div>
-<div class="brief" id="brief"></div>
-<div id="listSec">
-<h2>提到的股票</h2>
+<p class="sub">@aleabitoreddit 的公開貼文，AI 判讀，可能有錯，不是投資建議</p>
+</header>
+<div class="tabs" id="tabs" role="group" aria-label="時間範圍"><button type="button" data-d="1" aria-pressed="false">今天</button><button type="button" data-d="7" class="on" aria-pressed="true">7 天</button><button type="button" data-d="28" aria-pressed="false">28 天</button><button type="button" data-d="0" aria-pressed="false">全部</button></div>
+<section class="brief" id="brief" aria-label="重點摘要"></section>
+<section id="listSec" aria-labelledby="tkHead">
+<h2 id="tkHead">提到的股票</h2>
 <div id="tk"></div>
-<button class="linkbtn" id="moreBtn" style="display:none"></button>
-</div>
-<div id="stockSec" style="display:none">
-<button class="linkbtn" id="backBtn">‹ 回列表</button>
-<div class="stitle" id="stitle"></div>
-<div class="ssub" id="ssub"></div>
+<button type="button" class="linkbtn" id="moreBtn" style="display:none"></button>
+</section>
+<section id="stockSec" style="display:none" aria-labelledby="stitle">
+<button type="button" class="linkbtn" id="backBtn">‹ 回列表</button>
+<h2 class="stitle" id="stitle" tabindex="-1"></h2>
+<p class="ssub" id="ssub"></p>
 <div id="stlist"></div>
-</div>
-<div id="tlSec">
+</section>
+<section id="tlSec" aria-labelledby="tlHead">
 <h2 id="tlHead">貼文</h2>
 <div id="tl"></div>
 <details class="othersec" id="otherSec"></details>
-</div>
-<div class="footer">更新 __BUILT__ UTC ・ 最新貼文 __LATEST__ UTC</div>
+</section>
+<footer class="footer">更新 __BUILT__ UTC ・ 最新貼文 __LATEST__ UTC</footer>
 </main>
 <script>
 const DATA=__DATA__;

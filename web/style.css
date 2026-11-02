@@ -1,9 +1,10 @@
-:root{--fg:#111;--mute:#6b6b6b;--line:#e4e4e4;--bg:#fff;--bull:#0a7a3f;--bear:#c0392b;--neu:#777;--hl:#f8f8f8}
+:root{--fg:#111;--mute:#6b6b6b;--line:#e4e4e4;--bg:#fff;--bull:#0a7a3f;--bear:#c0392b;--neu:#666;--hl:#f8f8f8}
 *{box-sizing:border-box}
+:focus-visible{outline:2px solid var(--fg);outline-offset:2px}
 body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.6 "Noto Sans TC",-apple-system,BlinkMacSystemFont,"PingFang TC","Segoe UI",sans-serif}
 main{max-width:1040px;margin:0 auto;padding:28px 20px 60px}
 h1{font-size:22px;margin:0 0 4px;font-weight:700}
-.sub{color:var(--mute);font-size:13px;margin-bottom:18px}
+.sub{color:var(--mute);font-size:13px;margin:0 0 18px}
 .tabs{display:flex;gap:4px;margin-bottom:16px;flex-wrap:wrap}
 .tabs button{border:1px solid var(--line);background:#fff;padding:6px 14px;border-radius:999px;font:inherit;font-size:14px;cursor:pointer;color:var(--fg)}
 .tabs button.on{background:var(--fg);color:#fff;border-color:var(--fg)}
@@ -15,14 +16,15 @@ h2{font-size:17px;margin:26px 0 10px;font-weight:600}
 .mute{color:var(--mute)}
 .bull{color:var(--bull)}.bear{color:var(--bear)}.neu{color:var(--neu)}
 .tag{display:inline-block;font-size:12px;padding:1px 7px;border-radius:4px;border:1px solid currentColor;line-height:1.6;margin-right:4px;white-space:nowrap}
-.tkrow{padding:12px 4px;border-bottom:1px solid var(--line);cursor:pointer}
+.tkrow{display:block;width:100%;text-align:left;background:none;border:0;border-bottom:1px solid var(--line);font:inherit;color:inherit;padding:12px 4px;cursor:pointer}
 .tkrow:hover{background:var(--hl)}
 .tkrow .l1{display:flex;justify-content:space-between;align-items:baseline}
 .tkrow .sym{font-size:17px;font-weight:700}
-.tkrow .l2{margin-top:5px;font-size:15px;overflow-wrap:anywhere}
+.tkrow .l2{display:block;margin-top:5px;font-size:15px;overflow-wrap:anywhere}
 .reason{color:#333}
 .stitle{font-size:20px;font-weight:700;margin:14px 0 4px}
-.ssub{color:var(--mute);font-size:14px;margin-bottom:18px}
+.stitle:focus{outline:none}
+.ssub{color:var(--mute);font-size:14px;margin:0 0 18px}
 .dhead{font-size:14px;color:var(--mute);font-weight:600;margin:20px 0 8px}
 .post{padding:14px 0;border-bottom:1px solid var(--line)}
 .post .meta{display:flex;justify-content:space-between;align-items:baseline;font-size:13px;color:var(--mute);margin-bottom:6px}
