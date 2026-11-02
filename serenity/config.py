@@ -18,6 +18,6 @@ ALIAS = {'SK Hynix': 'SKHY', 'Mediatek': 'MediaTek', 'ESMT': 'ESMT (3006)', 'San
 STANCES = ('bullish', 'bearish', 'neutral')
 # Every dash-like character the page must not show: figure, en, em, horizontal bar,
 # two-em, three-em, small em, and the vertical presentation forms.
-DASHES = ('‒', '–', '—', '―', '⸺', '⸻', '﹘', '︱', '︲')
+DASHES = ('\u2012', '\u2013', '\u2014', '\u2015', '\u2e3a', '\u2e3b', '\ufe58', '\ufe31', '\ufe32')
 # Fields every scraped post must have (as strings) before it is merged.
 POST_KEYS = ('id', 'link', 'author', 'time', 'text', 'social', 'quoted')

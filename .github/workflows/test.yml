@@ -2,7 +2,6 @@ name: test
 on:
   pull_request:
   push:
-    branches: [main]
 permissions:
   contents: read
 jobs:
@@ -19,13 +18,15 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
-      - name: Python tests
+      - name: Python unit tests
         run: python3 -m unittest discover tests -v
-      - name: index.html is up to date with build.py
+      - name: Page calculation unit tests
+        run: node --test tests/calc.test.js
+      - name: index.html is up to date with build.py and web/
         run: |
           python3 build.py
-          git diff --quiet -I 'class="footer"' index.html || (echo "index.html 跟 build.py 不一致，請重跑 python3 build.py" && exit 1)
-      - name: Browser tests
+          git diff --quiet -I 'class="footer"' index.html || (echo "index.html 跟 build.py 或 web/ 不一致，請重跑 python3 build.py" && exit 1)
+      - name: Browser smoke tests
         run: |
           npm install --no-save playwright@1.63.0
           npx playwright install --with-deps chromium
