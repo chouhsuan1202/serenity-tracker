@@ -1,5 +1,7 @@
+"""Local receiver for fetch_x.js: open http://127.0.0.1:8765/receive#<data> and the posts are saved to data/incoming.json.
+Usage: python3 receiver.py [output path]"""
 import http.server, json, sys
-OUT = sys.argv[1] if len(sys.argv) > 1 else 'data/incoming.json'
+OUT = sys.argv[1] if len(sys.argv) > 1 else 'data/incoming.json'  # same as serenity.config.INCOMING
 PAGE = b"""<!doctype html><meta charset=utf-8><body><p id=s>sending...</p><script>
 const raw=decodeURIComponent(location.hash.slice(1));
 fetch('/data',{method:'POST',body:raw}).then(r=>r.ok?r.text():r.text().then(t=>{throw t})).then(t=>{document.getElementById('s').textContent='saved '+t+' chars'; history.replaceState(null,'',location.pathname);}).catch(e=>document.getElementById('s').textContent='error '+e);

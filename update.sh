@@ -1,4 +1,4 @@
-#!/bin/zsh
+#!/bin/sh
 set -e
 cd "$(dirname "$0")"
 [ -f data/incoming.json ] && python3 merge.py

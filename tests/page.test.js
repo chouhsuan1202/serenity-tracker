@@ -1,4 +1,5 @@
-// Browser tests for index.html: counts vs independent Python, XSS, layout at 375px / 1280px, console errors.
+// Browser smoke tests for index.html: counts vs independent Python, XSS, layout at 375px / 1280px, console errors,
+// keyboard use, contrast, no outside requests, old data.
 // Run: python3 build.py && node tests/page.test.js
 const { chromium } = require('playwright');
 const { execFileSync } = require('child_process');
@@ -9,12 +10,13 @@ let failures = 0;
 async function test(name, fn) {
   try { await fn(); console.log('ok  ', name); } catch (e) { failures++; console.log('FAIL', name, '\n  ', e.message); }
 }
-async function open(browser, file, width, errors) {
+async function open(browser, file, width, errors, now = NOW) {
   const page = await browser.newPage({ viewport: { width, height: 800 }, timezoneId: TZ });
+  page.on('request', r => !r.url().startsWith('file://') && errors.push('outside request: ' + r.url()));
   page.on('console', m => m.type() === 'error' && errors.push(m.text()));
   page.on('pageerror', e => errors.push(String(e)));
   page.on('dialog', d => { errors.push('dialog: ' + d.message()); d.dismiss(); });
-  await page.addInitScript(t => { Date.now = () => t; }, new Date(NOW).getTime());
+  await page.addInitScript(t => { Date.now = () => t; }, new Date(now).getTime());
   await page.goto('file://' + file);
   return page;
 }
@@ -98,6 +100,62 @@ const noHScroll = page => page.evaluate(() => document.documentElement.scrollWid
     await btn.click();
     assert.strictEqual(await page.locator('#otherSec .txt.clamp').count(), 0);
     assert.deepStrictEqual(errors, []);
+  });
+
+  await test('keyboard: Tab to a stock, Enter opens it, back returns focus to it', async () => {
+    const errors = [], page = await open(browser, real, 1280, errors);
+    const pressed = () => page.$$eval('#tabs button', bs => bs.map(b => b.getAttribute('aria-pressed')));
+    assert.deepStrictEqual(await pressed(), ['false', 'true', 'false', 'false']);
+    await page.focus('#tabs button[data-d="0"]'); await page.keyboard.press('Enter');
+    assert.deepStrictEqual(await pressed(), ['false', 'false', 'false', 'true'], 'aria-pressed follows the tab');
+    await page.keyboard.press('Tab'); // next focusable after the tabs is the first stock row
+    const sym = await page.evaluate(() => document.activeElement.classList.contains('tkrow') && document.activeElement.dataset.t);
+    assert.ok(sym, 'first stock row is reachable with Tab');
+    await page.keyboard.press('Enter');
+    assert.ok(await page.locator('#stockSec').isVisible(), 'Enter opens the stock page');
+    assert.strictEqual(await page.evaluate(() => document.activeElement.id), 'stitle', 'focus moves to the stock title');
+    await page.focus('#backBtn'); await page.keyboard.press('Space');
+    assert.strictEqual(await page.evaluate(() => document.activeElement.dataset.t), sym, 'focus returns to the same row');
+    assert.deepStrictEqual(errors, []);
+  });
+
+  await test('semantic structure: landmarks, headings, articles, times', async () => {
+    const errors = [], page = await open(browser, real, 1280, errors);
+    for (const sel of ['header h1', 'main', 'footer', '#tabs[role=group][aria-label]', 'section#brief[aria-label]'])
+      assert.strictEqual(await page.locator(sel).count(), 1, sel);
+    assert.ok(await page.locator('#tl article.post time[datetime]').count() > 0, 'posts are <article> with <time>');
+    assert.ok(await page.locator('#tl h3.dhead').count() > 0, 'date headings are <h3>');
+    assert.strictEqual(await page.locator('div[onclick], .tkrow:not(button)').count(), 0, 'clickable rows are buttons');
+    assert.strictEqual(await page.locator('img:not([alt])').count(), 0, 'every image has alt');
+    assert.deepStrictEqual(errors, []);
+  });
+
+  await test('text colors meet WCAG AA contrast (4.5:1) on white and on hover gray', async () => {
+    const errors = [], page = await open(browser, real, 1280, errors);
+    const vars = await page.evaluate(() => { const cs = getComputedStyle(document.documentElement);
+      return Object.fromEntries(['--fg', '--mute', '--bull', '--bear', '--neu', '--bg', '--hl'].map(v => [v, cs.getPropertyValue(v).trim()])); });
+    const lum = hex => { let h = hex.slice(1); if (h.length === 3) h = [...h].map(c => c + c).join('');
+      const [r, g, b] = [0, 2, 4].map(i => { const c = parseInt(h.slice(i, i + 2), 16) / 255; return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; });
+      return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
+    const ratio = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((m, n) => m - n); return (y + 0.05) / (x + 0.05); };
+    for (const v of ['--fg', '--mute', '--bull', '--bear', '--neu']) for (const bg of ['--bg', '--hl'])
+      assert.ok(ratio(vars[v], vars[bg]) >= 4.5, `${v} ${vars[v]} on ${bg} ${vars[bg]}: ${ratio(vars[v], vars[bg]).toFixed(2)}`);
+  });
+
+  await test('old data: empty windows show no stale summary, page still works offline', async () => {
+    const errors = [], page = await open(browser, real, 375, errors, '2026-11-02T12:00:00Z');
+    if ((await page.textContent('#tabs button[data-d="7"]')).endsWith(' · 0')) {
+      assert.strictEqual(await page.locator('#brief li').count(), 0, 'no summary over an empty week');
+      assert.match(await page.textContent('#tk'), /這段時間沒有貼文/);
+    }
+    await page.click('#tabs button[data-d="0"]');
+    assert.ok(await page.locator('#brief li').count() > 0, 'summary shown on 全部');
+    assert.deepStrictEqual(errors, [], 'no console errors and no outside requests');
+  });
+
+  await test('page contains no dash characters', async () => {
+    const html = fs.readFileSync(real, 'utf8');
+    assert.ok(!/[\u2012-\u2015\u2e3a\u2e3b\ufe58\ufe31\ufe32]/.test(html));
   });
 
   await browser.close();

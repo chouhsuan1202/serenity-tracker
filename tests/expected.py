@@ -4,7 +4,7 @@ import json, sys, pathlib, datetime, zoneinfo
 from collections import Counter, defaultdict
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
-from build import ALIAS  # shared config only, counting logic is separate
+from serenity.config import ALIAS  # shared config only, counting logic is separate
 
 now = datetime.datetime.fromisoformat(sys.argv[1].replace('Z', '+00:00'))
 tz = zoneinfo.ZoneInfo(sys.argv[2])

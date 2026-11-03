@@ -54,6 +54,14 @@ class Render(unittest.TestCase):
         html = build.render(build.normalize([post(text='x\u2014y')]), {'7': ['a\u2014b']}, 'x')
         self.assertNotIn('\u2014', html)
 
+    def test_placeholder_text_in_post_left_alone(self):
+        html = build.render(build.normalize([post(text='__BRIEF__ __LATEST__')]), {'7': ['b']}, 'x')
+        self.assertIn('"text": "__BRIEF__ __LATEST__"', html)
+
+    def test_all_dash_variants_replaced(self):
+        out = build.normalize([post(zh=''.join(build.DASHES))])
+        self.assertEqual(out[0]['zh'], '-' * len(build.DASHES))
+
     def test_main_refuses_empty(self):
         with tempfile.TemporaryDirectory() as d:
             src = pathlib.Path(d, 'c.json'); src.write_text('[]')
